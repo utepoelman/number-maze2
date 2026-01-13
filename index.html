@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nugget's Number Maze</title>
+    <style>
+        /* --- GLOBAL STYLES --- */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f0f2f5; 
+            display: flex; flex-direction: column; align-items: center; 
+            min-height: 100vh; margin: 0; padding: 5px; 
+        }
+        
+        /* HEADER */
+        h1 { 
+            color: #333; margin: 5px 0; font-size: 24px; 
+            display: flex; align-items: center; gap: 10px; 
+            justify-content: center; 
+            width: 100%; text-align: center;
+        }
+        .header-img { height: 50px; width: auto; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.1)); }
+        
+        /* Subtitle / Instructions */
+        .subtitle-container { 
+            text-align: center; 
+            margin: 0 auto 10px auto; 
+            width: 100%; 
+            max-width: 800px; 
+        }
+        p.subtitle { color: #666; font-size: 15px; margin: 2px 0; line-height: 1.3; }
+        .highlight-num { color: #e03131; font-weight: bold; font-size: 1.2em; background: #fff5f5; padding: 2px 8px; border-radius: 4px; border: 1px solid #ffc9c9;}
+
+        /* Print-Only Instruction Class */
+        .print-only { display: none; }
+
+        /* SELECTION UI */
+        .controls-wrapper {
+            background: #fff; padding: 10px 20px; border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 10px;
+            max-width: 700px;
+            margin: 0 auto 10px auto;
+        }
+        
+        .control-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; align-items: center; }
+        
+        .input-group { display: flex; align-items: center; gap: 8px; }
+        .input-label { font-weight: bold; color: #555; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        input[type="number"] {
+            padding: 5px 8px; border-radius: 6px; border: 2px solid #ced4da;
+            font-size: 16px; font-weight: bold; color: #333; width: 70px; text-align: center;
+        }
+        input[type="number"]:focus { border-color: #339af0; outline: none; }
+
+        /* Checkboxes */
+        .checkbox-group { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .cb-item { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: #495057; background: #f8f9fa; padding: 4px 8px; border-radius: 6px; border: 1px solid #e9ecef; cursor: pointer; user-select: none; }
+        .cb-item:hover { background: #e7f5ff; border-color: #a5d8ff; }
+        input[type="checkbox"] { transform: scale(1.1); cursor: pointer; }
+
+        /* --- GAME CONTAINER --- */
+        .game-card {
+            background: white; padding: 15px; border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center;
+            width: fit-content; max-width: 98vw; position: relative;
+        }
+
+        /* --- MAZE LAYOUT --- */
+        .maze-layout { display: flex; align-items: flex-start; gap: 5px; }
+
+        /* VISUALS */
+        .large-nugget { height: 80px; width: auto; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.2)); }
+        .large-treat { font-size: 60px; line-height: 60px; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.1)); cursor: default; }
+        .label-text { text-align:center; font-weight:bold; color:#888; font-size: 11px; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- MAZE GRID --- */
+        #maze-grid {
+            display: grid; gap: 4px; padding: 8px;
+            background: #e9ecef; border-radius: 12px;
+            user-select: none; border: 4px solid #dee2e6;
+        }
+
+        .cell {
+            width: 60px; height: 55px; 
+            background-color: white; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: bold; color: #495057;
+            cursor: pointer; transition: all 0.15s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+            line-height: 1.15;
+            padding: 2px;
+        }
+
+        .cell:hover { transform: scale(1.05); z-index: 10; background-color: #f1f3f5; }
+        
+        /* Fraction Styling */
+        .frac { display: inline-flex; flex-direction: column; vertical-align: middle; margin: 0 4px; text-align: center; font-size: 0.9em; }
+        .frac-top { border-bottom: 2px solid #495057; padding: 0 2px; display: block; }
+        .frac-bot { display: block; padding: 0 2px; }
+        .cell-content { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; pointer-events: none; width: 100%; }
+
+        /* Path Selection */
+        .cell.path { background-color: #74c0fc; color: white; border: 2px solid #339af0; }
+        .cell.path .frac-top { border-bottom-color: white; }
+        .cell.clickable:hover { background-color: #d0ebff; }
+
+        /* FEEDBACK ANIMATIONS */
+        .cell.correct { background-color: #40c057 !important; border-color: #2f9e44 !important; color: white; }
+        .cell.correct .frac-top { border-bottom-color: white; }
+        .cell.wrong { background-color: #fa5252 !important; border-color: #e03131 !important; color: white; animation: shake 0.4s; }
+        .cell.wrong .frac-top { border-bottom-color: white; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* --- CONTROLS --- */
+        .control-bar { display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; justify-content: center; }
+        .btn { padding: 8px 16px; border: none; border-radius: 30px; cursor: pointer; font-size: 15px; font-weight: bold; transition: transform 0.1s; display: flex; align-items: center; gap: 6px; }
+        .btn:active { transform: scale(0.96); }
+        
+        .btn-check { background-color: #228be6; color: white; border-bottom: 4px solid #1864ab; }
+        .btn-check:hover { background-color: #1c7ed6; }
+        
+        .btn-reset { background-color: #868e96; color: white; border-bottom: 4px solid #495057; }
+        .btn-reset:hover { background-color: #495057; }
+
+        .btn-print { background-color: #7950f2; color: white; border-bottom: 4px solid #5f3dc4; }
+        .btn-print:hover { background-color: #6741d9; }
+
+        .btn-cert { background-color: #40c057; color: white; display: none; border-bottom: 4px solid #2b8a3e; animation: popIn 0.5s; }
+        .btn-cert:hover { background-color: #37b24d; }
+
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+
+        /* --- CERTIFICATE VIEW --- */
+        #certificate-view { display: none; width: 100%; max-width: 600px; text-align: center; background: white; padding: 30px; border-radius: 20px; border: 8px solid #ffd43b; box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-top: 20px; }
+        .cert-title { font-size: 32px; color: #fab005; margin-bottom: 5px; font-family: 'Georgia', serif; letter-spacing: 1px; text-transform: uppercase; }
+        .cert-body { font-size: 18px; color: #555; margin: 20px 0; line-height: 1.6; }
+        .cert-name { font-size: 28px; font-weight: bold; color: #333; border-bottom: 2px solid #ccc; padding: 0 20px; display: inline-block; margin: 10px 0; font-family: 'Courier New', monospace; }
+        .cert-details { background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 20px auto; width: fit-content; border: 1px solid #dee2e6; }
+        .cert-footer { margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px; }
+        .cert-sign { text-align: center; }
+        .paw-print { font-size: 36px; color: #fab005; opacity: 0.6; transform: rotate(-15deg); display: block; }
+        .sign-line { border-top: 2px solid #888; width: 140px; margin-top: 5px; padding-top: 5px; font-weight: bold; color: #666; font-size: 14px; }
+
+        #post-game-controls { display: none; margin-top: 30px; }
+
+        /* MODAL */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
+        .modal-content { background: white; padding: 30px; border-radius: 20px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideDown 0.3s ease-out; }
+        
+        @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* --- PRINT STYLES --- */
+        @media print {
+            body, .game-card, #maze-grid, .cell { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+            .controls-wrapper, .control-bar, #post-game-controls, .modal-overlay, #status-msg { display: none !important; }
+            .print-only { display: block !important; font-size: 12px; color: #444; font-style: italic; margin-top: 2px; }
+            
+            body { 
+                background-color: white; padding: 0; margin: 0; 
+                display: block; 
+                text-align: center;
+            }
+            
+            h1, .subtitle-container { 
+                margin-left: auto !important; 
+                margin-right: auto !important; 
+                width: 100%;
+                text-align: center;
+            }
+
+            .game-card { 
+                box-shadow: none; 
+                border: 2px solid #333; 
+                padding: 5px; 
+                width: 95%; 
+                margin: 0 auto; 
+                transform-origin: top center;
+                transform: scale(0.9); 
+            }
+            
+            .subtitle-container { margin-bottom: 5px; max-width: 100%; }
+            h1 { font-size: 20px; margin: 5px 0; }
+            p.subtitle { font-size: 12px; }
+            
+            #maze-grid { border-width: 2px; background-color: #e9ecef !important; border-color: #dee2e6; gap: 3px; }
+            
+            .cell { 
+                border: none; box-shadow: none; 
+                background-color: white !important; 
+                border-radius: 4px; border: 1px solid #ddd; 
+                height: 50px; 
+                font-size: 12px;
+            }
+            .cell.path { background-color: white !important; color: #495057; border: 1px solid #ddd; }
+            .cell.path .frac-top { border-bottom-color: #495057; }
+        }
+
+        /* Responsive Tweaks */
+        @media (max-width: 600px) {
+            .maze-layout { flex-direction: column; align-items: center; }
+            .cell { width: 50px; height: 50px; font-size: 11px; }
+            .large-nugget, .large-treat { height: 50px; font-size: 40px; line-height: 40px; }
+        }
+    </style>
+</head>
+<body>
+
+    <style id="print-orientation-style"></style>
+
+    <h1>
+        <img src="Nugget.png" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUyIiByPSI0MCIgZmlsbD0iI2ZhYjAwNSIvPjxjaXJjbGUgY3g9IjMwIiBjeT0iMjUiIHI9IjEyIiBmaWxsPSIjZmFiMDA1Ii8+PGNpcmNsZSBjeD0iNzAiIGN5PSIyNSIgcj0iMTIiIGZpbGw9IiNmYWIwMDUiLz48L3N2Zz4='" alt="Nugget the Hamster" class="header-img"> 
+        Nugget's Number Maze
+    </h1>
+    
+    <div class="subtitle-container">
+        <div class="controls-wrapper">
+            <div class="control-row">
+                <div class="input-group">
+                    <span class="input-label">Target Number:</span>
+                    <input type="number" id="target-num" value="12" min="1" onchange="initGame()">
+                </div>
+                <button class="btn btn-reset" style="padding: 5px 12px; font-size: 13px;" onclick="randomizeTarget()">🎲 Random</button>
+            </div>
+
+            <div class="input-label" style="width: 100%; text-align: center; border-top: 1px solid #eee; padding-top: 5px;">Include Skills:</div>
+            
+            <div class="checkbox-group">
+                <label class="cb-item"><input type="checkbox" id="cb-add" checked onchange="initGame()"> + / -</label>
+                <label class="cb-item"><input type="checkbox" id="cb-mult" checked onchange="initGame()"> ×</label>
+                <label class="cb-item"><input type="checkbox" id="cb-div" onchange="initGame()"> ÷</label>
+                <label class="cb-item"><input type="checkbox" id="cb-frac" onchange="initGame()"> Fractions</label>
+                <label class="cb-item"><input type="checkbox" id="cb-perc" onchange="initGame()"> Percent</label>
+            </div>
+        </div>
+
+        <p class="subtitle" id="instructions-text">
+            Help Nugget the hamster find the treat!<br>
+            Move only on squares that equal the Target Number:
+        </p>
+        <p class="subtitle">TARGET: <span id="target-display" class="highlight-num">12</span></p>
+        
+        <p class="subtitle print-only">Rules: Move one square at a time (up, down, left, right). Calculate carefully!</p>
+    </div>
+
+    <div class="game-card" id="game-ui">
+        
+        <div class="maze-layout">
+            <div style="margin-right: 10px; margin-top: 0px; text-align: center;">
+                <img src="Nugget.png" onerror="this.style.display='none'" class="large-nugget" alt="Start">
+                <div class="label-text">START</div>
+            </div>
+
+            <div id="maze-grid"></div>
+
+            <div style="margin-left: 10px; align-self: flex-end; text-align: center;">
+                <div class="label-text">FINISH</div>
+                <div class="large-treat">🌰</div>
+            </div>
+        </div>
+
+        <div class="control-bar">
+            <button class="btn btn-reset" onclick="initGame()">🔄 Refresh Maze</button>
+            <button class="btn btn-print" onclick="printScreenMaze()">🖨️ Print Worksheet</button>
+            <button class="btn btn-check" onclick="checkSolution()">✅ Check Path</button>
+            <button class="btn btn-cert" id="cert-btn" onclick="openCertModal()">🏆 Claim Certificate</button>
+        </div>
+        <div id="status-msg" style="margin-top:10px; color:#666; font-weight:bold; height:24px; font-size: 16px; text-align: center;"></div>
+    </div>
+
+    <div id="certificate-view">
+        <img src="Nugget.png" onerror="this.style.display='none'" style="height: 80px; margin-bottom: 10px;" alt="Nugget">
+        <div class="cert-title">Certificate of Mastery</div>
+        <div class="cert-body">
+            This certifies that<br>
+            <span id="display-name" class="cert-name">Student Name</span><br>
+            has successfully found the path through<br>
+            <strong>Nugget's Number Maze</strong>.
+        </div>
+        
+        <div class="cert-details">
+            <div style="font-weight: bold; color: #666; margin-bottom: 5px;">MAZE STATISTICS</div>
+            <div>Target Number: <strong id="cert-target">12</strong></div>
+            <div style="margin-top: 5px; font-size: 16px;">Skills: <span id="cert-skills">Multiplication</span></div>
+        </div>
+
+        <div style="font-size: 14px; color: #999; margin-top: 20px;">
+            Completed on: <span id="display-time"></span> <br>
+            <span id="display-code"></span>
+        </div>
+        <div class="cert-footer">
+            <div class="cert-sign">
+                <div style="font-size: 22px; font-weight: bold; color: #444;">Nugget</div>
+                <div class="sign-line">Instructor</div>
+            </div>
+            <div class="cert-sign">
+                <span class="paw-print">🐾</span>
+                <div class="sign-line">Signature</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="post-game-controls">
+        <button class="btn btn-reset" style="margin: 0 auto;" onclick="location.reload()">Back to Games</button>
+    </div>
+
+    <div id="certModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>You found the treat!</h2>
+            <p>Enter your name to sign your certificate.</p>
+            <input type="text" id="nameInput" placeholder="Your Name" style="padding: 10px; font-size: 18px; width: 80%; margin-bottom: 20px; border-radius: 5px; border: 1px solid #ccc; text-align: center;">
+            <br>
+            <button class="btn btn-check" style="margin: 0 auto;" onclick="generateCertificate()">Create Certificate</button>
+        </div>
+    </div>
+
+    <script>
+        /* --- CONFIG --- */
+        let COLS = 10;
+        let ROWS = 8;
+        let gridData = []; 
+        let userPath = []; 
+        let isSolved = false;
+        let targetNumber = 12;
+        
+        // DECK FOR MULTIPLICATION
+        // Stores all valid factor pairs for the current target so we can
+        // cycle through them without repeating until all have been used.
+        let multFactorsBag = [];
+
+        /* --- RESIZE LOGIC --- */
+        function updateDimensions() {
+            const aspect = window.innerWidth / window.innerHeight;
+            if (window.innerWidth < 600) {
+                COLS = 5; ROWS = 8;
+            } else if (aspect > 1) {
+                COLS = 10; ROWS = 8;
+            } else {
+                COLS = 6; ROWS = 10;
+            }
+            const grid = document.getElementById('maze-grid');
+            grid.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+        }
+
+        /* --- INIT --- */
+        window.onload = function() {
+            updateDimensions();
+            initGame();
+        };
+
+        function randomizeTarget() {
+            let min = 5; 
+            let max = 40;
+            if(document.getElementById('cb-mult').checked) max = 60;
+            targetNumber = Math.floor(Math.random() * (max - min + 1)) + min;
+            document.getElementById('target-num').value = targetNumber;
+            initGame();
+        }
+
+        function initGame() {
+            updateDimensions();
+            isSolved = false;
+            userPath = [0]; 
+            multFactorsBag = []; // Reset the bag
+            
+            let inputVal = parseInt(document.getElementById('target-num').value);
+            if(!isNaN(inputVal)) targetNumber = inputVal;
+            document.getElementById('target-display').innerText = targetNumber;
+
+            document.getElementById('cert-btn').style.display = 'none';
+            document.querySelector('.btn-check').style.display = 'flex';
+            document.getElementById('status-msg').innerText = '';
+            
+            let skills = [];
+            if(document.getElementById('cb-add').checked) skills.push('add');
+            if(document.getElementById('cb-mult').checked) skills.push('mult');
+            if(document.getElementById('cb-div').checked) skills.push('div');
+            if(document.getElementById('cb-frac').checked) skills.push('frac');
+            if(document.getElementById('cb-perc').checked) skills.push('perc');
+            
+            if(skills.length === 0) {
+                skills.push('add'); 
+                document.getElementById('cb-add').checked = true;
+            }
+
+            let mazeGenerated = false;
+            let attempts = 0;
+            while(!mazeGenerated && attempts < 500) {
+                attempts++;
+                const pathIndices = generatePathGeometry();
+                if(pathIndices) {
+                    fillMathMaze(pathIndices, skills);
+                    mazeGenerated = true;
+                }
+            }
+            
+            if(!mazeGenerated) {
+                console.warn("Could not generate strict maze, using fallback");
+                gridData = new Array(COLS*ROWS).fill({valid:false, html:"?"});
+            }
+
+            renderGrid();
+        }
+
+        /* --- GEOMETRY GENERATOR (Standard DFS) --- */
+        function generatePathGeometry() {
+            const minPathLen = Math.floor(1.2 * (COLS + ROWS)); 
+            const targetIdx = (COLS * ROWS) - 1;
+            
+            function buildPath(current, path, visited) {
+                if (current === targetIdx) {
+                    return (path.length >= minPathLen) ? path : null;
+                }
+                let neighbors = getNeighbors(current);
+                neighbors.sort(() => Math.random() - 0.5); 
+
+                for (let n of neighbors) {
+                    if (!visited.has(n)) {
+                        let nNeighbors = getNeighbors(n);
+                        let shortcut = false;
+                        for(let nn of nNeighbors) {
+                            if(visited.has(nn) && nn !== current) shortcut = true;
+                        }
+
+                        if (!shortcut) {
+                            visited.add(n);
+                            path.push(n);
+                            let result = buildPath(n, path, visited);
+                            if (result) return result;
+                            path.pop();
+                            visited.delete(n);
+                        }
+                    }
+                }
+                return null;
+            }
+            return buildPath(0, [0], new Set([0]));
+        }
+
+        /* --- MULTIPLICATION BAG LOGIC --- */
+        function getMultFactorPair(target) {
+            // If empty, refill with ALL possible pairs
+            if(multFactorsBag.length === 0) {
+                let factors = [];
+                for(let i=1; i<=Math.sqrt(target); i++) {
+                    if(target % i === 0) {
+                        let f1 = i;
+                        let f2 = target / f1;
+                        // Add regular
+                        factors.push(`${f1} × ${f2}`);
+                        // Add reverse if distinct (if not square root)
+                        if(f1 !== f2) {
+                            factors.push(`${f2} × ${f1}`);
+                        } else {
+                            // If it is square root (e.g. 6x6), push it twice anyway so it has 
+                            // similar weight to other pairs which appear as AxB and BxA
+                            factors.push(`${f1} × ${f2}`);
+                        }
+                    }
+                }
+                // Shuffle
+                for (let i = factors.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [factors[i], factors[j]] = [factors[j], factors[i]];
+                }
+                multFactorsBag = factors;
+            }
+            return multFactorsBag.pop();
+        }
+
+        /* --- CONTENT GENERATOR --- */
+        function fillMathMaze(pathIndices, skills) {
+            gridData = new Array(COLS * ROWS);
+            let pathSet = new Set(pathIndices);
+
+            for(let i=0; i<gridData.length; i++) {
+                const isCorrect = pathSet.has(i);
+                const type = skills[Math.floor(Math.random() * skills.length)];
+                gridData[i] = generateContent(targetNumber, type, isCorrect);
+            }
+        }
+
+        function generateContent(target, type, isCorrect) {
+            let html = "";
+            const rnd = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+            // --- DISTRACTOR LOGIC ---
+            let effectiveTarget = target;
+            let useZeroDistractor = false;
+
+            if (!isCorrect) {
+                // Occasional Zero Distractor for Mult/Div (20% chance)
+                if ((type === 'mult' || type === 'div') && Math.random() < 0.2) {
+                    useZeroDistractor = true;
+                } else {
+                    // Standard offset distractor
+                    let offset = rnd(1, 5);
+                    if(Math.random() > 0.5) effectiveTarget += offset;
+                    else effectiveTarget -= offset;
+                    if(effectiveTarget < 1) effectiveTarget = target + offset;
+                    if(effectiveTarget === target) effectiveTarget += 1; 
+                }
+            }
+
+            // --- GENERATION SWITCH ---
+            switch(type) {
+                case 'add':
+                    // A + B = T (or A - B = T)
+                    if (isCorrect) {
+                        // Allow 0 in addition/subtraction for correct path
+                        // e.g., T + 0, 0 + T, T - 0
+                        if (Math.random() < 0.15) {
+                            // Zero case
+                            if(Math.random() > 0.5) html = `${target} + 0`;
+                            else html = `${target} - 0`;
+                        } else {
+                            // Standard case
+                            let op = Math.random() > 0.5 ? '+' : '-';
+                            if (op === '+') {
+                                let a = rnd(1, effectiveTarget - 1);
+                                if(effectiveTarget <= 1) a = 0; 
+                                let b = effectiveTarget - a;
+                                
+                                // Explicitly swap to ensure variety
+                                if(Math.random() > 0.5) html = `${a} + ${b}`;
+                                else html = `${b} + ${a}`;
+                                
+                            } else {
+                                // A - B = T  => A = T + B
+                                let b = rnd(1, 10);
+                                let a = effectiveTarget + b;
+                                html = `${a} - ${b}`;
+                            }
+                        }
+                    } else {
+                        // Incorrect
+                        let a = rnd(1, effectiveTarget - 1);
+                        let b = effectiveTarget - a;
+                        if(Math.random() > 0.5) html = `${a} + ${b}`;
+                        else html = `${b} + ${a}`;
+                    }
+                    break;
+
+                case 'mult':
+                    if (useZeroDistractor && !isCorrect) {
+                        // Generate N * 0 or 0 * N
+                        let n = rnd(1, 20);
+                        if(Math.random() > 0.5) html = `${n} × 0`;
+                        else html = `0 × ${n}`;
+                    } else {
+                        if(isCorrect) {
+                            // Use the Deck System to ensure all factors appear
+                            html = getMultFactorPair(target);
+                        } else {
+                            // Standard Distractor Mult
+                            let factors = [];
+                            // Logic only finds smaller factors (up to sqrt)
+                            for(let i=1; i<=Math.sqrt(effectiveTarget); i++) {
+                                if(effectiveTarget % i === 0) factors.push(i);
+                            }
+                            let f1 = factors[Math.floor(Math.random() * factors.length)];
+                            if(!f1) f1 = 1; 
+                            let f2 = effectiveTarget / f1;
+                            
+                            // Randomly swap
+                            if(Math.random() > 0.5) html = `${f1} × ${f2}`;
+                            else html = `${f2} × ${f1}`;
+                        }
+                    }
+                    break;
+
+                case 'div':
+                    if (useZeroDistractor && !isCorrect) {
+                        // Generate 0 / N
+                        let n = rnd(2, 10);
+                        html = `0 ÷ ${n}`; 
+                    } else {
+                        let divisor = rnd(2, 6);
+                        let dividend = effectiveTarget * divisor;
+                        html = `${dividend} ÷ ${divisor}`;
+                    }
+                    break;
+
+                case 'frac':
+                    let num = 1; 
+                    let den = rnd(2, 5);
+                    if (Math.random() > 0.7 && effectiveTarget > 1) {
+                         let divisors = [];
+                         for(let k=2; k<effectiveTarget; k++) {
+                             if(effectiveTarget % k === 0) divisors.push(k);
+                         }
+                         if(divisors.length > 0) num = divisors[Math.floor(Math.random()*divisors.length)];
+                    }
+                    let total = (effectiveTarget * den) / num;
+                    html = `<div class="frac"><span class="frac-top">${num}</span><span class="frac-bot">${den}</span></div> of ${total}`;
+                    break;
+
+                case 'perc':
+                    // P% of Y = T
+                    const percs = [2, 4, 5, 10, 20, 25, 50];
+                    let validPercs = percs.filter(p => (effectiveTarget * 100) % p === 0);
+                    if(validPercs.length === 0) validPercs = [50]; 
+                    
+                    let p = validPercs[Math.floor(Math.random() * validPercs.length)];
+                    let y = (effectiveTarget * 100) / p;
+                    
+                    // Always break line
+                    html = `${p}%<br>of ${y}`;
+                    break;
+            }
+
+            return { valid: isCorrect, html: html };
+        }
+
+
+        /* --- HELPERS & RENDER --- */
+        function getNeighbors(idx) {
+            let neighbors = [];
+            const x = idx % COLS;
+            const y = Math.floor(idx / COLS);
+            if(x > 0) neighbors.push(idx - 1); 
+            if(x < COLS - 1) neighbors.push(idx + 1);
+            if(y > 0) neighbors.push(idx - COLS); 
+            if(y < ROWS - 1) neighbors.push(idx + COLS);
+            return neighbors;
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('maze-grid');
+            container.innerHTML = '';
+            for(let i=0; i<gridData.length; i++) {
+                let div = document.createElement('div');
+                div.className = 'cell';
+                div.innerHTML = `<div class="cell-content">${gridData[i].html}</div>`;
+                div.id = `cell-${i}`;
+                div.onclick = () => handleCellClick(i);
+                container.appendChild(div);
+            }
+            updatePathVisuals();
+        }
+
+        function updatePathVisuals() {
+            document.querySelectorAll('.cell').forEach(c => {
+                c.classList.remove('path', 'clickable');
+            });
+
+            userPath.forEach(idx => {
+                document.getElementById(`cell-${idx}`).classList.add('path');
+            });
+
+            if(!isSolved) {
+                let last = userPath[userPath.length - 1];
+                let neighbors = getNeighbors(last);
+                neighbors.forEach(n => {
+                    if(!userPath.includes(n)) {
+                        document.getElementById(`cell-${n}`).classList.add('clickable');
+                    }
+                });
+            }
+        }
+
+        function handleCellClick(idx) {
+            if(isSolved) return;
+            const lastStep = userPath[userPath.length - 1];
+            if(idx === lastStep && userPath.length > 1) {
+                userPath.pop();
+                updatePathVisuals();
+                return;
+            }
+            const neighbors = getNeighbors(lastStep);
+            if(neighbors.includes(idx) && !userPath.includes(idx)) {
+                userPath.push(idx);
+                updatePathVisuals();
+            }
+        }
+
+        /* --- VALIDATION --- */
+        function checkSolution() {
+            if(isSolved) return;
+            let allCorrect = true;
+            let badStepIndex = -1;
+
+            for(let i=0; i<userPath.length; i++) {
+                if(gridData[userPath[i]].valid === false) {
+                    allCorrect = false; 
+                    badStepIndex = i;
+                    break;
+                }
+            }
+
+            const lastNode = userPath[userPath.length - 1];
+            const targetNode = (COLS * ROWS) - 1;
+            const reachedEnd = (lastNode === targetNode);
+            const cells = document.querySelectorAll('.cell');
+            
+            if(allCorrect && reachedEnd) {
+                isSolved = true;
+                userPath.forEach(idx => document.getElementById(`cell-${idx}`).classList.add('correct'));
+                document.getElementById('status-msg').innerText = "Path Correct!";
+                document.getElementById('status-msg').style.color = "#2b8a3e";
+                document.querySelector('.btn-check').style.display = 'none';
+                document.getElementById('cert-btn').style.display = 'flex';
+            } else {
+                let msg = reachedEnd ? "Check your maths!" : "Keep going!";
+                if(!allCorrect) msg = "Oops! Some squares don't equal " + targetNumber;
+                
+                document.getElementById('status-msg').innerText = msg;
+                document.getElementById('status-msg').style.color = "#c92a2a";
+                
+                for(let i=0; i<userPath.length; i++) {
+                    let el = document.getElementById(`cell-${userPath[i]}`);
+                    if(badStepIndex === -1 || i < badStepIndex) {
+                        el.classList.add('correct');
+                    } else {
+                        el.classList.add('wrong');
+                    }
+                }
+                setTimeout(() => {
+                    document.getElementById('status-msg').innerText = "";
+                    cells.forEach(c => c.classList.remove('correct', 'wrong'));
+                }, 2500);
+            }
+        }
+
+        /* --- CERTIFICATE --- */
+        function openCertModal() { document.getElementById('certModal').style.display = 'flex'; }
+        
+        function generateCertificate() {
+            const name = document.getElementById('nameInput').value.trim();
+            if(!name) { alert("Please enter your name."); return; }
+            
+            document.getElementById('display-name').innerText = name;
+            
+            // Generate Skills String
+            let skillNames = [];
+            if(document.getElementById('cb-add').checked) skillNames.push("+/-");
+            if(document.getElementById('cb-mult').checked) skillNames.push("Multiplication");
+            if(document.getElementById('cb-div').checked) skillNames.push("Division");
+            if(document.getElementById('cb-frac').checked) skillNames.push("Fractions");
+            if(document.getElementById('cb-perc').checked) skillNames.push("Percent");
+            
+            document.getElementById('cert-skills').innerText = skillNames.join(", ");
+            document.getElementById('cert-target').innerText = targetNumber;
+
+            document.getElementById('display-time').innerText = new Date().toLocaleString();
+            document.getElementById('display-code').innerText = "Code: " + Math.floor(1000 + Math.random() * 9000);
+            
+            document.getElementById('certModal').style.display = 'none';
+            document.getElementById('game-ui').style.display = 'none';
+            document.querySelector('.subtitle-container').style.display = 'none';
+            document.querySelector('h1').innerText = "Congratulations!";
+            document.getElementById('certificate-view').style.display = 'block';
+            document.getElementById('post-game-controls').style.display = 'block';
+        }
+
+        /* --- PRINTING LOGIC --- */
+        function printScreenMaze() {
+            document.querySelectorAll('.cell').forEach(c => c.classList.remove('path', 'clickable', 'correct', 'wrong'));
+            
+            const styleEl = document.getElementById('print-orientation-style');
+            if(COLS > ROWS) {
+                styleEl.innerHTML = '@page { size: landscape; }';
+            } else {
+                styleEl.innerHTML = '@page { size: portrait; }';
+            }
+            window.print();
+            updatePathVisuals();
+        }
+    </script>
+</body>
+</html>
