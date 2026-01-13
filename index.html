@@ -410,31 +410,51 @@
             renderGrid();
         }
 
-        /* --- GEOMETRY GENERATOR (Standard DFS) --- */
+/* --- GEOMETRY GENERATOR (Improved) --- */
         function generatePathGeometry() {
-            const minPathLen = Math.floor(1.2 * (COLS + ROWS)); 
+            // User Requirement: 2 * (Width + Height)
+            const targetLen = 2 * (COLS + ROWS);
+            
+            // Safety: On small grids, that length might be impossible with the 
+            // "1-cell gap" rule (which consumes ~50-60% of space).
+            // We cap the length at 50% of total area to prevent infinite loops.
+            const maxSafeLen = Math.floor(COLS * ROWS * 0.5);
+            
+            // Use the target length, but don't exceed the safety limit
+            const minPathLen = Math.min(targetLen, maxSafeLen);
+            
             const targetIdx = (COLS * ROWS) - 1;
             
             function buildPath(current, path, visited) {
+                // If we reached the end...
                 if (current === targetIdx) {
+                    // Only accept the path if it meets our new length requirement
                     return (path.length >= minPathLen) ? path : null;
                 }
+
+                // Get neighbors and shuffle them for randomness
                 let neighbors = getNeighbors(current);
                 neighbors.sort(() => Math.random() - 0.5); 
 
                 for (let n of neighbors) {
                     if (!visited.has(n)) {
+                        // Check for shortcuts (ensure 1-cell gap between path segments)
                         let nNeighbors = getNeighbors(n);
                         let shortcut = false;
                         for(let nn of nNeighbors) {
+                            // If neighbor touches an existing path cell that isn't the previous one
                             if(visited.has(nn) && nn !== current) shortcut = true;
                         }
 
                         if (!shortcut) {
                             visited.add(n);
                             path.push(n);
+                            
+                            // Recursive Step
                             let result = buildPath(n, path, visited);
                             if (result) return result;
+                            
+                            // Backtrack
                             path.pop();
                             visited.delete(n);
                         }
@@ -442,6 +462,7 @@
                 }
                 return null;
             }
+            
             return buildPath(0, [0], new Set([0]));
         }
 
